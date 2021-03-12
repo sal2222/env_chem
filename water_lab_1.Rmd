@@ -9,8 +9,10 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
-library(lubridate)
+
 ```
+
+Code and data available at: https://github.com/sal2222/env_chem
 
 
 ## Read-in data
@@ -54,8 +56,17 @@ potomac %>%
   knitr::kable()
 
 
+```
 
-# Boxplot of Parameter Values
+
+## Plots
+
+```{r}
+
+
+# Plots of Parameter Values
+
+# Cations and Anions
 
 potomac %>% 
   filter(!Parameter %in% c("Total dissolved solids",
@@ -70,6 +81,20 @@ potomac %>%
 
 
 potomac %>% 
+  filter(!Parameter %in% c("Total dissolved solids",
+                           "Temperature, water", "pH", "Hardness, Ca, Mg",
+                           "Alkalinity")) %>% 
+  ggplot(aes(x = Date, y = Value, color = Parameter)) +
+    geom_point() +
+    geom_line() +
+    ylab("mg/L") +
+    ggtitle("Potomac River Ions") +
+    theme_bw()
+
+
+
+# Hardness and Alkalinity
+potomac %>% 
   filter(Parameter %in% c("Hardness, Ca, Mg", "Alkalinity")) %>% 
   ggplot(aes(x = Parameter, y = Value)) +
     geom_boxplot() +
@@ -80,6 +105,19 @@ potomac %>%
 
 
 potomac %>% 
+  filter(Parameter %in% c("Hardness, Ca, Mg", "Alkalinity")) %>% 
+   ggplot(aes(x = Date, y = Value, color = Parameter)) +
+      geom_point() +
+      geom_line() +
+      ylab(expression("mg/L as CaCO"[3])) +
+      ggtitle("Potomac River Hardness and Alkalinity") +
+      theme_bw()
+
+
+
+# pH
+
+potomac %>% 
   filter(Parameter %in% "pH") %>% 
   ggplot(aes(x = Parameter, y = Value)) +
     geom_boxplot() +
@@ -88,8 +126,9 @@ potomac %>%
     ggtitle("pH") +
     theme_bw()
 
-
 ```
+
+
 
 
 ## Select data 
@@ -101,8 +140,7 @@ Filter most recent results with full set of parameter results
 potomac %>% 
   group_by(Date) %>%
     count() %>% 
-    arrange(desc(Date)) %>% 
-  View()
+    arrange(desc(Date)) 
 
 ```
 

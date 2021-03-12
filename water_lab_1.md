@@ -1,6 +1,8 @@
 water\_lab\_1
 ================
 
+Code and data available at: <https://github.com/sal2222/env_chem>
+
 ## Read-in data
 
 Source: USGS Water Quality Portal: <https://www.waterqualitydata.us/>
@@ -73,8 +75,12 @@ potomac %>%
 | Temperature, water     |   14.52 |    8.72 |   29.10 |  57 |
 | Total dissolved solids | 1688.75 | 4003.64 | 8047.00 | 132 |
 
+## Plots
+
 ``` r
-# Boxplot of Parameter Values
+# Plots of Parameter Values
+
+# Cations and Anions
 
 potomac %>% 
   filter(!Parameter %in% c("Total dissolved solids",
@@ -88,9 +94,25 @@ potomac %>%
     theme_bw()
 ```
 
-![](water_lab_1_files/figure-gfm/unnamed-chunk-2-2.png)<!-- -->
+![](water_lab_1_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
 ``` r
+potomac %>% 
+  filter(!Parameter %in% c("Total dissolved solids",
+                           "Temperature, water", "pH", "Hardness, Ca, Mg",
+                           "Alkalinity")) %>% 
+  ggplot(aes(x = Date, y = Value, color = Parameter)) +
+    geom_point() +
+    geom_line() +
+    ylab("mg/L") +
+    ggtitle("Potomac River Ions") +
+    theme_bw()
+```
+
+![](water_lab_1_files/figure-gfm/unnamed-chunk-3-2.png)<!-- -->
+
+``` r
+# Hardness and Alkalinity
 potomac %>% 
   filter(Parameter %in% c("Hardness, Ca, Mg", "Alkalinity")) %>% 
   ggplot(aes(x = Parameter, y = Value)) +
@@ -101,9 +123,24 @@ potomac %>%
     theme_bw()
 ```
 
-![](water_lab_1_files/figure-gfm/unnamed-chunk-2-3.png)<!-- -->
+![](water_lab_1_files/figure-gfm/unnamed-chunk-3-3.png)<!-- -->
 
 ``` r
+potomac %>% 
+  filter(Parameter %in% c("Hardness, Ca, Mg", "Alkalinity")) %>% 
+   ggplot(aes(x = Date, y = Value, color = Parameter)) +
+      geom_point() +
+      geom_line() +
+      ylab(expression("mg/L as CaCO"[3])) +
+      ggtitle("Potomac River Hardness and Alkalinity") +
+      theme_bw()
+```
+
+![](water_lab_1_files/figure-gfm/unnamed-chunk-3-4.png)<!-- -->
+
+``` r
+# pH
+
 potomac %>% 
   filter(Parameter %in% "pH") %>% 
   ggplot(aes(x = Parameter, y = Value)) +
@@ -114,7 +151,7 @@ potomac %>%
     theme_bw()
 ```
 
-![](water_lab_1_files/figure-gfm/unnamed-chunk-2-4.png)<!-- -->
+![](water_lab_1_files/figure-gfm/unnamed-chunk-3-5.png)<!-- -->
 
 ## Select data
 
@@ -124,9 +161,24 @@ Filter most recent results with full set of parameter results
 potomac %>% 
   group_by(Date) %>%
     count() %>% 
-    arrange(desc(Date)) %>% 
-  View()
+    arrange(desc(Date)) 
 ```
+
+    ## # A tibble: 57 x 2
+    ## # Groups:   Date [57]
+    ##    Date           n
+    ##    <date>     <int>
+    ##  1 2021-02-22     5
+    ##  2 2021-02-08     5
+    ##  3 2020-12-30     2
+    ##  4 2020-12-28     2
+    ##  5 2020-12-07     2
+    ##  6 2020-12-01     5
+    ##  7 2020-11-12     5
+    ##  8 2020-11-03     2
+    ##  9 2020-10-30     2
+    ## 10 2020-10-06     5
+    ## # ... with 47 more rows
 
 2020-09-10: most recent sample day with 18 parameters
 
