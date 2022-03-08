@@ -1,5 +1,5 @@
 ---
-title: "water_lab_1"
+title: "lab1_2022"
 output: github_document
 editor_options: 
   chunk_output_type: console
@@ -9,6 +9,11 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
+library(skimr)
+library(maps)
+library(sf)
+library(usmap)
+library(tigris)
 
 ```
 
@@ -19,15 +24,20 @@ Code and data available at: https://github.com/sal2222/env_chem
 
 Source: USGS Water Quality Portal: https://www.waterqualitydata.us/ 
 
-Site ID: USGS-01646580
-Date Range: 01-01-2019 to 03-05-2021
+Query: Montgomery County, stream, inorganic, 2000-2022
 
-Query: https://www.waterqualitydata.us/portal/#siteid=USGS-01646580&characteristicName=Bicarbonate&characteristicName=Calcium&characteristicName=Magnesium&characteristicName=Sodium&characteristicName=Potassium&characteristicName=Hardness%2C%20Ca%2C%20Mg&characteristicName=Alkalinity&characteristicName=pH&characteristicName=Total%20dissolved%20solids&characteristicName=Temperature%2C%20water&characteristicName=Chloride&characteristicName=Sulfate&characteristicName=Carbon%20dioxide&startDateLo=01-01-2019&startDateHi=03-05-2021&mimeType=csv 
+
 
 ```{r}
 
-potomac <- read_csv("data/result_modified.csv") %>% 
-  mutate(Date = as.Date(Date, "%m/%d/%Y"))
+montgomery <- read_csv("data/resultphyschem_clean2022.csv", guess_max = 3000, na = c("", "NA", "ND")) %>% 
+  mutate(StartDate = as.Date(StartDate, "%m/%d/%Y")) %>% 
+  rename(ResultName = 'Result Name') 
+  
+# Needed guess_max to assign numeric (double) lat/lon column types; add "ND" to NA list 
+                       
+montgomery
+
 
 ```
 
@@ -36,129 +46,184 @@ potomac <- read_csv("data/result_modified.csv") %>%
 
 ```{r}
 
+montgomery %>% skimr::skim()
 
 # Bar chart of # of parameters analyzed by date
 
-potomac %>% 
-  ggplot(aes(x = Date)) +
+montgomery %>% 
+  ggplot(aes(x = StartDate)) +
     geom_bar(stat = "count") +
   theme_bw()
 
 
-# Summary table of parameter values
+# Parameter values
 
-potomac %>% 
-  group_by(Parameter) %>% 
-    summarise(mean = round(mean(Value), digits = 2),
-              sd = round(sd(Value), digits = 2),
-              upper95 = round(quantile(Value, .95), digits = 2),
+montgomery %>% 
+  group_by(ResultName) %>%
+  count() %>% 
+  View()
+
+
+montgomery %>% 
+  group_by(ResultName, ResultType, ResultUnit) %>%
+  filter(n() > 5) %>% 
+  summarise(mean = mean(ResultValue),
+              sd = sd(ResultValue),
               n = n()) %>% 
   knitr::kable()
 
 
+
+```
+
+## Map Siter
+
+```{r}
+# All states
+states <- st_as_sf(map("state", plot = FALSE, fill = TRUE))
+
+# All counties
+counties <- st_as_sf(map("county", plot = FALSE, fill = TRUE))
+
+# Filter Montgomery County, MD shapefile
+montgomery_shape <- counties %>% 
+  filter(ID %in% "maryland,montgomery")
+
+# Filter dataframe to include only observations with coordinates, group by location ID
+montgomery_map <-
+    montgomery %>% 
+      filter(!lat %in% NA) %>% 
+  group_by(LocationID, lat, lon) %>% 
+  count()
+  
+# sample sites from lat/lon  
+sites <- st_as_sf(montgomery_map, coords = c("lon", "lat"), 
+    crs = 4326, agr = "constant")
+
+
+
+
+# Plot map
+
+
+ggplot(data = montgomery_shape) +
+    geom_sf() +
+    geom_sf(data = sites)
+
+
+# Gradient scale by number of samples
+
+ggplot(data = montgomery_shape) +
+    geom_sf() +
+    geom_sf(data = sites, aes(fill = n), size = 3, shape = 23)
+
+
 ```
 
 
-## Plots
+## Fancier map
+
+```{r}
+
+# Add details
+
+
+my_bbox <- c(xmin = min(montgomery_map$lon),
+             xmax = max(montgomery_map$lon),
+             ymin = min(montgomery_map$lat),
+             ymax = max(montgomery_map$lat))
+
+
+
+roads <- tigris::roads("MD", "montgomery")
+linear_water <- tigris::linear_water("MD", "montgomery")
+
+
+ggplot(data = montgomery_shape) +
+    geom_sf() +
+    geom_sf(data = roads,
+                   color = "tan", fill = "white", size = 0.1, alpha = 0.5) +
+    geom_sf(data = linear_water,
+                   color = "blue", fill = "white", size = 0.1, alpha = 0.5) +
+    geom_sf(data = sites, aes(fill = n), size = 3, shape = 23) +
+    theme_bw()
+
+
+```
+
+
+
+
+
+## Carbonate and Bicarbonate
 
 ```{r}
 
 
-# Plots of Parameter Values
-
-# Cations and Anions
-
-potomac %>% 
-  filter(!Parameter %in% c("Total dissolved solids",
-                           "Temperature, water", "pH", "Hardness, Ca, Mg",
-                           "Alkalinity")) %>% 
-  ggplot(aes(x = Parameter, y = Value)) +
+# Boxplot
+montgomery %>% 
+  filter(ResultName %in% c("Bicarbonate", "Carbonate")) %>% 
+  ggplot(aes(x = ResultName, y = ResultValue)) +
     geom_boxplot() +
     coord_flip() +
     ylab("mg/L") +
-    ggtitle("Ions") +
+    ggtitle("Carbonate Species") +
     theme_bw()
 
 
-potomac %>% 
-  filter(!Parameter %in% c("Total dissolved solids",
-                           "Temperature, water", "pH", "Hardness, Ca, Mg",
-                           "Alkalinity")) %>% 
-  ggplot(aes(x = Date, y = Value, color = Parameter)) +
-    geom_point() +
-    geom_line() +
-    ylab("mg/L") +
-    ggtitle("Potomac River Ions") +
-    theme_bw()
+# Summary Table
 
-
-
-# Hardness and Alkalinity
-potomac %>% 
-  filter(Parameter %in% c("Hardness, Ca, Mg", "Alkalinity")) %>% 
-  ggplot(aes(x = Parameter, y = Value)) +
-    geom_boxplot() +
-    coord_flip() +
-    ylab(expression("mg/L as CaCO"[3])) +
-    ggtitle("Hardness and Alkalinity") +
-    theme_bw()
-
-
-potomac %>% 
-  filter(Parameter %in% c("Hardness, Ca, Mg", "Alkalinity")) %>% 
-   ggplot(aes(x = Date, y = Value, color = Parameter)) +
-      geom_point() +
-      geom_line() +
-      ylab(expression("mg/L as CaCO"[3])) +
-      ggtitle("Potomac River Hardness and Alkalinity") +
-      theme_bw()
-
-
-
-# pH
-
-potomac %>% 
-  filter(Parameter %in% "pH") %>% 
-  ggplot(aes(x = Parameter, y = Value)) +
-    geom_boxplot() +
-    coord_flip() +
-    ylab("pH") +
-    ggtitle("pH") +
-    theme_bw()
-
-```
-
-
-
-
-## Select data 
-
-Filter most recent results with full set of parameter results
-
-```{r}
-
-potomac %>% 
-  group_by(Date) %>%
-    count() %>% 
-    arrange(desc(Date)) 
-
-```
-
-2020-09-10: most recent sample day with 18 parameters
-
-
-
-```{r}
-
-
-potomac %>% 
-  filter(Date == "2020-09-10")
-
-
-potomac %>% 
-  filter(Date == "2020-09-10") %>% 
-  dplyr::select(Parameter, Value, Units) %>% 
+montgomery %>% 
+  filter(ResultName %in% c("Bicarbonate", "Carbonate")) %>% 
+  group_by(ResultName) %>% 
+    summarise(mean = round(mean(ResultValue), digits = 2),
+              sd = round(sd(ResultValue), digits = 2),
+              upper95 = round(quantile(ResultValue, .95), digits = 2),
+              n = n()) %>% 
   knitr::kable()
 
+montgomery %>% 
+  filter(ResultName %in% c("Bicarbonate", "Carbonate")) %>% 
+    View()
+
+
+# Remove Outlier sample (units in ueq/L)
+
+montgomery %>% 
+  filter(ResultName %in% c("Bicarbonate", "Carbonate"),
+         !OrgID %in% "NARS_WQX") %>% 
+  ggplot(aes(x = ResultName, y = ResultValue)) +
+    geom_boxplot() +
+    coord_flip() +
+    ylab("mg/L") +
+    ggtitle("Carbonate Species") +
+    theme_bw()
+
+
+
+
 ```
+
+
+## Select parameter
+```{r}
+
+montgomery %>% 
+  filter(ResultName %in% "Chloride" & ResultType %in% "Dissolved") %>% 
+  ggplot(aes(x = StartDate, y = ResultValue)) +
+    geom_point() +
+    ggtitle("Chloride, dissolved (mg/L)") +
+    theme_bw()
+
+montgomery %>% 
+  filter(ResultName %in% "Chloride" & ResultType %in% "Dissolved") %>% 
+  ggplot(aes(x = StartDate, y = ResultValue, col = OrgID)) +
+    geom_point() +
+    ggtitle("Chloride, dissolved (mg/L)") +
+    theme_bw()
+
+```
+
+
+
 
