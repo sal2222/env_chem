@@ -1,0 +1,164 @@
+---
+title: "water_lab_1"
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+
+```
+
+Code and data available at: https://github.com/sal2222/env_chem
+
+
+## Read-in data
+
+Source: USGS Water Quality Portal: https://www.waterqualitydata.us/ 
+
+Site ID: USGS-01646580
+Date Range: 01-01-2019 to 03-05-2021
+
+Query: https://www.waterqualitydata.us/portal/#siteid=USGS-01646580&characteristicName=Bicarbonate&characteristicName=Calcium&characteristicName=Magnesium&characteristicName=Sodium&characteristicName=Potassium&characteristicName=Hardness%2C%20Ca%2C%20Mg&characteristicName=Alkalinity&characteristicName=pH&characteristicName=Total%20dissolved%20solids&characteristicName=Temperature%2C%20water&characteristicName=Chloride&characteristicName=Sulfate&characteristicName=Carbon%20dioxide&startDateLo=01-01-2019&startDateHi=03-05-2021&mimeType=csv 
+
+```{r}
+
+potomac <- read_csv("data/result_modified.csv") %>% 
+  mutate(Date = as.Date(Date, "%m/%d/%Y"))
+
+```
+
+
+## Inspect Data
+
+```{r}
+
+
+# Bar chart of # of parameters analyzed by date
+
+potomac %>% 
+  ggplot(aes(x = Date)) +
+    geom_bar(stat = "count") +
+  theme_bw()
+
+
+# Summary table of parameter values
+
+potomac %>% 
+  group_by(Parameter) %>% 
+    summarise(mean = round(mean(Value), digits = 2),
+              sd = round(sd(Value), digits = 2),
+              upper95 = round(quantile(Value, .95), digits = 2),
+              n = n()) %>% 
+  knitr::kable()
+
+
+```
+
+
+## Plots
+
+```{r}
+
+
+# Plots of Parameter Values
+
+# Cations and Anions
+
+potomac %>% 
+  filter(!Parameter %in% c("Total dissolved solids",
+                           "Temperature, water", "pH", "Hardness, Ca, Mg",
+                           "Alkalinity")) %>% 
+  ggplot(aes(x = Parameter, y = Value)) +
+    geom_boxplot() +
+    coord_flip() +
+    ylab("mg/L") +
+    ggtitle("Ions") +
+    theme_bw()
+
+
+potomac %>% 
+  filter(!Parameter %in% c("Total dissolved solids",
+                           "Temperature, water", "pH", "Hardness, Ca, Mg",
+                           "Alkalinity")) %>% 
+  ggplot(aes(x = Date, y = Value, color = Parameter)) +
+    geom_point() +
+    geom_line() +
+    ylab("mg/L") +
+    ggtitle("Potomac River Ions") +
+    theme_bw()
+
+
+
+# Hardness and Alkalinity
+potomac %>% 
+  filter(Parameter %in% c("Hardness, Ca, Mg", "Alkalinity")) %>% 
+  ggplot(aes(x = Parameter, y = Value)) +
+    geom_boxplot() +
+    coord_flip() +
+    ylab(expression("mg/L as CaCO"[3])) +
+    ggtitle("Hardness and Alkalinity") +
+    theme_bw()
+
+
+potomac %>% 
+  filter(Parameter %in% c("Hardness, Ca, Mg", "Alkalinity")) %>% 
+   ggplot(aes(x = Date, y = Value, color = Parameter)) +
+      geom_point() +
+      geom_line() +
+      ylab(expression("mg/L as CaCO"[3])) +
+      ggtitle("Potomac River Hardness and Alkalinity") +
+      theme_bw()
+
+
+
+# pH
+
+potomac %>% 
+  filter(Parameter %in% "pH") %>% 
+  ggplot(aes(x = Parameter, y = Value)) +
+    geom_boxplot() +
+    coord_flip() +
+    ylab("pH") +
+    ggtitle("pH") +
+    theme_bw()
+
+```
+
+
+
+
+## Select data 
+
+Filter most recent results with full set of parameter results
+
+```{r}
+
+potomac %>% 
+  group_by(Date) %>%
+    count() %>% 
+    arrange(desc(Date)) 
+
+```
+
+2020-09-10: most recent sample day with 18 parameters
+
+
+
+```{r}
+
+
+potomac %>% 
+  filter(Date == "2020-09-10")
+
+
+potomac %>% 
+  filter(Date == "2020-09-10") %>% 
+  dplyr::select(Parameter, Value, Units) %>% 
+  knitr::kable()
+
+```
+
